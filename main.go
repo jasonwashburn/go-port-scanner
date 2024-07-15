@@ -1,14 +1,16 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
+	"os"
 	"sort"
 )
 
-func worker(ports chan int, results chan int) {
+func worker(address string, ports chan int, results chan int) {
 	for p := range ports {
-		conn, err := net.Dial("tcp", fmt.Sprintf("scanme.nmap.org:%d", p))
+		conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", address, p))
 		if err != nil {
 			results <- 0
 			continue
@@ -18,7 +20,22 @@ func worker(ports chan int, results chan int) {
 	}
 }
 
+func printUsage() {
+	fmt.Printf("Usage: %s [OPTIONS] <address>\n", os.Args[0])
+	flag.PrintDefaults()
+}
+
 func main() {
+	flag.Usage = printUsage
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 1 {
+		printUsage()
+		return
+	}
+
+	address := args[0]
+
 	var openPorts []int
 	ports := make(chan int, 100)
 	results := make(chan int, 100)
@@ -26,7 +43,7 @@ func main() {
 	defer close(results)
 
 	for i := 0; i < cap(ports); i++ {
-		go worker(ports, results)
+		go worker(address, ports, results)
 	}
 
 	go func() {
