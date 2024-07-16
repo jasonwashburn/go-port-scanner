@@ -1,11 +1,14 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 func worker(address string, ports chan int, results chan int) {
@@ -25,7 +28,41 @@ func printUsage() {
 	flag.PrintDefaults()
 }
 
+func ParsePortRange(p string) ([]int, error) {
+	var output []int
+	p = strings.TrimSpace(p)
+	if p == "" {
+		return output, nil
+	}
+	portStrings := strings.Split(p, ",")
+
+	for _, ps := range portStrings {
+		nums := strings.Split(ps, "-")
+		if len(nums) == 1 {
+			if strings.TrimSpace(nums[0]) == "" {
+				continue
+			}
+			n, err := strconv.Atoi(nums[0])
+			if err != nil {
+				return nil, errors.New("unable to process port string, cannot convert to int")
+			}
+			output = append(output, n)
+		}
+
+		if len(nums) > 2 {
+			return nil, errors.New("unable to process port string, invalid range")
+		}
+
+	}
+	return output, nil
+
+}
+
+//TODO: Add flag for number of workers
+//TODO: Add flag for port number / port ranges
+
 func main() {
+	// ports := flag.String("p", "", "port or range of ports to scan (i.e. 22,80,100-200")
 	flag.Usage = printUsage
 	flag.Parse()
 	args := flag.Args()
