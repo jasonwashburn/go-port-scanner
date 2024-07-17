@@ -48,6 +48,24 @@ func TestParsePortRange(t *testing.T) {
 			expected: []int{},
 			errMsg:   "unable to process port string, invalid range",
 		},
+		{
+			name:     "invalid start of range",
+			input:    "1,2,a-5",
+			expected: []int{},
+			errMsg:   "unable to convert start of range to integer",
+		},
+		{
+			name:     "invalid stop of range",
+			input:    "1,2,5-a",
+			expected: []int{},
+			errMsg:   "unable to convert stop of range to integer",
+		},
+		{
+			name:     "decreasing order range",
+			input:    "1,2,10-5",
+			expected: []int{},
+			errMsg:   "start of range must be greater than stop",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -53,7 +54,26 @@ func ParsePortRange(p string) ([]int, error) {
 			return nil, errors.New("unable to process port string, invalid range")
 		}
 
+		if len(nums) == 2 {
+			start, err := strconv.Atoi(nums[0])
+			if err != nil {
+				return nil, errors.New("unable to convert start of range to integer")
+			}
+			stop, err := strconv.Atoi(nums[1])
+			if err != nil {
+				return nil, errors.New("unable to convert stop of range to integer")
+			}
+			if start > stop {
+				return nil, errors.New("start of range must be greater than stop")
+			}
+			for i := start; i <= stop; i++ {
+				output = append(output, i)
+			}
+
+		}
+
 	}
+	slices.Sort(output)
 	return output, nil
 
 }
@@ -62,7 +82,7 @@ func ParsePortRange(p string) ([]int, error) {
 //TODO: Add flag for port number / port ranges
 
 func main() {
-	// ports := flag.String("p", "", "port or range of ports to scan (i.e. 22,80,100-200")
+	portFlag := flag.String("p", "", "port or range of ports to scan (i.e. 22,80,100-200)")
 	flag.Usage = printUsage
 	flag.Parse()
 	args := flag.Args()
@@ -73,24 +93,35 @@ func main() {
 
 	address := args[0]
 
-	var openPorts []int
-	ports := make(chan int, 100)
-	results := make(chan int, 100)
-	defer close(ports)
-	defer close(results)
+	portsRange, err := ParsePortRange(*portFlag)
+	if err != nil {
+		fmt.Printf("unable to parse port flag: %v\n", err)
+		return
+	}
 
-	for i := 0; i < cap(ports); i++ {
-		go worker(address, ports, results)
+	var openPorts []int
+	portsChan := make(chan int, 100)
+	resultsChan := make(chan int, 100)
+	defer close(portsChan)
+	defer close(resultsChan)
+
+	for i := 0; i < cap(portsChan); i++ {
+		go worker(address, portsChan, resultsChan)
+	}
+	if len(portsRange) == 0 {
+		for i := 1; i <= 1024; i++ {
+			portsRange = append(portsRange, i)
+		}
 	}
 
 	go func() {
-		for i := 1; 1 <= 1024; i++ {
-			ports <- i
+		for _, p := range portsRange {
+			portsChan <- p
 		}
 	}()
 
-	for i := 0; i <= 1024; i++ {
-		port := <-results
+	for range len(portsRange) {
+		port := <-resultsChan
 		if port != 0 {
 			openPorts = append(openPorts, port)
 		}
